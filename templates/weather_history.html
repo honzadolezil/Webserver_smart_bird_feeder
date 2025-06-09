@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chytré Krmítko - Meteorologická Data</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <header>
+        <div class="header-container">
+            <h1>Meteorologická Data</h1>
+            <nav>
+                <a href="{{ url_for('index') }}" class="nav-button">Domů</a>
+                <a href="{{ url_for('gallery') }}" class="nav-button">Galerie</a>
+                <a href="{{ url_for('weather_history') }}" class="nav-button active">Meteorologická Data</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="weather-history-container">
+            <!-- Simple controls -->
+            <div class="weather-controls">
+                <button onclick="loadWeatherData()" class="refresh-btn">
+                    <span>🔄</span> Obnovit data
+                </button>
+                <span id="data-info" class="data-info">Načítání...</span>
+            </div>
+
+            <!-- Charts -->
+            <div class="charts-container">
+                <div class="chart-section">
+                    <h3>Teplota (°C)</h3>
+                    <div class="chart-wrapper">
+                        <div id="temperature-chart"></div>
+                    </div>
+                </div>
+                
+                <div class="chart-section">
+                    <h3>Vlhkost (%)</h3>
+                    <div class="chart-wrapper">
+                        <div id="humidity-chart"></div>
+                    </div>
+                </div>
+                
+                <div class="chart-section">
+                    <h3>Tlak (hPa)</h3>
+                    <div class="chart-wrapper">
+                        <div id="pressure-chart"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Historical Data Table -->
+            <div class="data-table-section">
+                <h3>Poslední Měření</h3>
+                <div class="table-container">
+                    <table id="weatherTable">
+                        <thead>
+                            <tr>
+                                <th>Čas</th>
+                                <th>Teplota (°C)</th>
+                                <th>Vlhkost (%)</th>
+                                <th>Tlak (hPa)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="weatherTableBody">
+                            <!-- Data will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let weatherData = [];
+
+        function loadWeatherData() {
+            document.getElementById('data-info').textContent = 'Načítání...';
+            
+            fetch('/weather-data')
+                .then(response => response.json())
+                .then(data => {
+                    weatherData = data;
+                    updateCharts();
+                    document.getElementById('data-info').textContent = 
+                        `Celkem ${data.length} záznamů`;
+                })
+                .catch(error => {
+                    console.error('Error loading weather data:', error);
+                    document.getElementById('data-info').textContent = 'Chyba při načítání dat';
+                });
+        }
+
+        function updateCharts() {
+            if (weatherData.length === 0) {
+                document.getElementById('data-info').textContent = 'K dispozici nejsou žádná data';
+                return;
+            }
+
+            // Prepare data for charts
+            const timestamps = weatherData.map(d => new Date(d.timestamp));
+            const temperatures = weatherData.map(d => d.temperature);
+            const humidity = weatherData.map(d => d.humidity);
+            const pressure = weatherData.map(d => d.pressure);
+
+            // Temperature Chart
+            const tempTrace = {
+                x: timestamps,
+                y: temperatures,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'Temperature',
+                line: { color: '#e74c3c', width: 2 },
+                marker: { size: 4 }
+            };
+
+            Plotly.newPlot('temperature-chart', [tempTrace], {
+                title: '',
+                xaxis: { title: 'Čas' },
+                yaxis: { title: 'Teplota (°C)' },
+                margin: { t: 30, b: 40, l: 60, r: 20 },
+                height: 300
+            });
+
+            // Humidity Chart
+            const humidityTrace = {
+                x: timestamps,
+                y: humidity,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'Humidity',
+                line: { color: '#3498db', width: 2 },
+                marker: { size: 4 }
+            };
+
+            Plotly.newPlot('humidity-chart', [humidityTrace], {
+                title: '',
+                xaxis: { title: 'Čas' },
+                yaxis: { title: 'Vlhkost (%)' },
+                margin: { t: 30, b: 40, l: 60, r: 20 },
+                height: 300
+            });
+
+            // Pressure Chart
+            const pressureTrace = {
+                x: timestamps,
+                y: pressure,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'Pressure',
+                line: { color: '#2ecc71', width: 2 },
+                marker: { size: 4 }
+            };
+
+            Plotly.newPlot('pressure-chart', [pressureTrace], {
+                title: '',
+                xaxis: { title: 'Čas' },
+                yaxis: { title: 'Tlak (hPa)' },
+                margin: { t: 30, b: 40, l: 60, r: 20 },
+                height: 300
+            });
+
+            // Update data table with last 100 records
+            updateTable(weatherData.slice(-100));
+        }
+
+        // update table data
+        function updateTable(data) {
+            const tbody = document.getElementById('weatherTableBody');
+            tbody.innerHTML = '';
+
+            [...data].reverse().forEach(item => {
+                const row = tbody.insertRow();
+                const date = new Date(item.timestamp);
+                row.innerHTML = `
+                    <td>${date.toLocaleString('cs-CZ')}</td>
+                    <td>${item.temperature.toFixed(1)}</td>
+                    <td>${item.humidity.toFixed(1)}</td>
+                    <td>${item.pressure.toFixed(1)}</td>
+                `;
+            });
+        }
+
+        // load data on page laod
+        window.addEventListener('load', loadWeatherData);
+
+        // autorefresh every 30 seconds
+        setInterval(loadWeatherData, 30000);
+    </script>
+</body>
+</html>

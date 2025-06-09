@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32-CAM Photo Gallery</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script>
+        let captureInProgress = false;
+        
+        function capturePhoto() {
+            // prevent multiple captures - disable button while capturing
+            if (captureInProgress) {
+                return false;
+            }
+            
+            captureInProgress = true;
+            const button = document.getElementById('captureBtn');
+            const originalText = button.innerHTML;
+            
+            // disable button and change text
+            button.disabled = true;
+            button.innerHTML = '📸 Fotím...';
+            button.style.backgroundColor = '#95a5a6'; //grey
+            
+            // send capture post request
+            fetch('/capture', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    button.innerHTML = '✅ Vyfoceno!';
+                    
+                    // refresh page to show new img
+                    setTimeout(() => {
+                        window.location.reload(true);
+                    }, 1000);
+                } else {
+                    throw new Error(data.message || 'Focení se nezdařilo');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                // re-enable button
+                button.disabled = false;
+                button.innerHTML = originalText;
+                button.style.backgroundColor = '';
+                captureInProgress = false;
+                alert('Focení se nezdařilo: ' + error.message);
+            });
+            
+            return false; // prevent form submission - webpage reloads 
+        }
+        
+        function refreshWeather() {
+        const button = event.target;
+        const originalText = button.innerHTML;
+
+        button.disabled = true;
+        button.innerHTML = '🔬 Měřím...';
+
+        // Now we call our Flask server, not ESP32 directly!
+        fetch('/refresh-weather', {method: 'POST'})
+        .then(response => response.json())
+        .then(data => {
+            if(data.success) {
+                button.innerHTML = '✅ Počasí aktualizováno!';
+                setTimeout(() => {
+                    window.location.reload(true);
+                }, 1000);
+            } else {
+                throw new Error(data.message || 'Měření se nezdařilo');
+            }
+        })
+        .catch(error => {
+            console.error('Weather error:', error);
+            button.disabled = false;
+            button.innerHTML = originalText;
+            alert('Měření počasí se nezdařilo: ' + error.message);
+        });
+    }
+
+    </script>
+</head>
+<body>
+    <header>
+        <div class="header-container">
+            <h1>Chytré Krmítko</h1>
+            <nav>
+                <a href="{{ url_for('index') }}" class="nav-button active">Domů</a>
+                <a href="{{ url_for('gallery') }}" class="nav-button">Galerie</a>
+                <a href="{{ url_for('weather_history') }}" class="nav-button">Meteorologická Data</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <!-- Capture Controls -->
+        <div class="capture-section">
+            <h2>Manuální Fotografie</h2>
+            <p>Klikněte na tlačítko níže pro pořízení fotografie uvnitř budky</p>
+            <div class="capture-form">
+                <button id="captureBtn" type="button" onclick="capturePhoto()" class="capture-btn">📸 Pořídit fotografii</button>
+            </div>
+        </div>  
+
+        <!-- Current Weather Display -->
+        <div class="current-weather-section">
+            <h2>Aktuální Počasí</h2>
+            {% if latest_weather %} 
+            <div class="current-weather-container">
+                <div class="current-weather-items">
+                    <div class="current-weather-item">
+                        <span class="weather-icon">🌡️</span>
+                        <span class="weather-value">{{ "%.1f"|format(latest_weather.temperature) }}°C</span>
+                    </div>
+                    <div class="current-weather-item">
+                        <span class="weather-icon">💧</span>
+                        <span class="weather-value">{{ "%.1f"|format(latest_weather.humidity) }}%</span>
+                    </div>
+
+                     <div class="current-weather-item">
+                        <span class="weather-icon">📈</span>
+                        <span class="weather-value">{{ "%.1f"|format(latest_weather.pressure) }} hPa</span>
+                    </div>
+                </div>
+                <div class="weather-actions">
+                    <span class="weather-timestamp">{{ latest_weather.timestamp[:19].replace('T', ' ') }}</span>
+                    <button onclick="refreshWeather()" class="weather-refresh-btn">🔄</button>
+                </div>
+            </div>
+            {% else %}
+            <div class="no-weather">
+                <p>Nejsou data o počasí</p>
+                <button onclick="refreshWeather()" class="weather-refresh-btn">🔄 Získat data o počasí</button>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Latest Image Display -->
+        {% if latest_image %}
+        <div class="latest-section">
+            <h2>Nejnovější Fotografie</h2>
+            <div class="latest-image-container">
+                <img src="{{ url_for('serve_image', filename=latest_image) }}?{{ latest_image }}" alt="Latest capture" class="latest-image">
+                <div class="image-info">
+                    <span class="filename">{{ latest_image }}</span>
+                    <span class="timestamp">{{ latest_timestamp }}</span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Gallery -->
+        <div class="gallery-section">
+            <h2>Galerie ({{ total_images }} Fotografií)</h2>
+            {% if total_images > 0 %}
+                <div class="gallery-actions">
+                    <a href="/gallery" class="gallery-link">🖼️ Zobrazit celou galerii</a>
+                </div>
+            {% else %}
+                <div class="no-images">
+                    <p>Žádné obrázky dosud nebyly pořízeny. Pořiďte si svůj první obrázek!</p>
+                </div>
+            {% endif %}
+        </div>
+    </main>
+</body>
+</html>

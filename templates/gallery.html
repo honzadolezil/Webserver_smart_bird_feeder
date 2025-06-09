@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chytré krmítko - Galerie</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <div class="header-container">
+            <h1>Galerie</h1>
+            <nav>
+                <a href="{{ url_for('index') }}" class="nav-button">Domů</a>
+                <a href="{{ url_for('gallery') }}" class="nav-button active">Galerie</a>
+                <a href="{{ url_for('weather_history') }}" class="nav-button">Meteorologická Data</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <!-- Gallery Stats -->
+        <div class="gallery-stats">
+            <h2>Počet Fotografií: ({{ total_images }})</h2>
+            {% if latest_timestamp %}
+            <p>Nejnovější: {{ latest_timestamp }}</p>
+            {% endif %}
+            
+            <!-- Compact Weather Display -->
+            {% if latest_weather %}
+            <div class="compact-weather">
+                <span class="weather-compact-item">🌡️ {{ "%.1f"|format(latest_weather.temperature) }}°C</span>
+                <span class="weather-compact-item">💧 {{ "%.1f"|format(latest_weather.humidity) }}%</span>
+                <span class="weather-compact-item">📈 {{ "%.1f"|format(latest_weather.pressure) }} hPa</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Full Gallery Grid -->
+        {% if images %}
+        <div class="gallery-grid">
+            {% for image in images %}
+            <div class="gallery-item">
+                <a href="{{ url_for('serve_image', filename=image.filename) }}" target="_blank">
+                    <img src="{{ url_for('serve_image', filename=image.filename) }}?{{ image.filename }}" alt="Captured {{ image.timestamp }}" class="gallery-thumbnail">
+                </a>
+                <div class="gallery-info">
+                    <span class="gallery-filename">{{ image.filename }}</span>
+                    <span class="gallery-timestamp">{{ image.timestamp }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="no-images">
+            <p>Nejsou k dispozici žádné fotografie. <a href="/">Běžte zpět a vyfoťte první fotografii!</a></p>
+        </div>
+        {% endif %}
+    </main>
+</body>
+</html>
